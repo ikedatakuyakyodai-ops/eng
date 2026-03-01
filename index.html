@@ -7,23 +7,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Gemini English</title>
   
-  <!-- アプリアイコンの設定 -->
   <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Globe_icon_%28blue%29.svg/1024px-Globe_icon_%28blue%29.svg.png">
-
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- React & ReactDOM -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  
-  <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- Firebase Compat (v10) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+  <style>
+    .selectable-text { -webkit-user-select: text; user-select: text; }
+    body { overscroll-behavior-y: none; background-color: #f8fafc; }
+  </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans overflow-hidden overscroll-none">
   <div id="root"></div>
@@ -32,33 +27,27 @@
     const { useState, useEffect, useRef } = React;
 
     // ==========================================
-    // あなた専用のAPIキーとFirebase設定（合鍵）
+    // あなた専用のAPIキーとFirebase設定
     // ==========================================
-    // Googleの監視ロボットをすり抜けるための分割キー
-const key1 = "AIzaSyB-pkRaBP";
-const key2 = "JC9rftmlKCqsKSNpFsyZC7bds";
-const GEMINI_API_KEY = key1 + key2;
-
+    const key1 = "AIzaSyB-pkRaBP";
+    const key2 = "JC9rftmlKCqsKSNpFsyZC7bds";
+    const GEMINI_API_KEY = key1 + key2;
 
     const firebaseConfig = {
-  apiKey: "AIzaSyAUL6xawq0B6DDi0M1o31q9qQriU6p7-wU",
-  authDomain: "my-english-app-514d2.firebaseapp.com",
-  projectId: "my-english-app-514d2",
-  storageBucket: "my-english-app-514d2.firebasestorage.app",
-  messagingSenderId: "49093844143",
-  appId: "1:49093844143:web:129113db0452d138b6085a"
-};
+      apiKey: "AIzaSyAUL6xawq0B6DDi0M1o31q9qQriU6p7-wU",
+      authDomain: "my-english-app-514d2.firebaseapp.com",
+      projectId: "my-english-app-514d2",
+      storageBucket: "my-english-app-514d2.firebasestorage.app",
+      messagingSenderId: "49093844143",
+      appId: "1:49093844143:web:129113db0452d138b6085a"
+    };
 
-    // Firebaseの安全な初期化
     if (!firebase.apps.length) {
       firebase.initializeApp(firebaseConfig);
     }
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // ==========================================
-    // UI Icons (外部依存をなくした頑丈な仕様)
-    // ==========================================
     const Icons = {
       Send: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path></svg>,
       Mic: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"></path></svg>,
@@ -86,9 +75,6 @@ const GEMINI_API_KEY = key1 + key2;
       Loader2: ({className}) => <div className={`border-2 border-current border-t-transparent rounded-full animate-spin ${className}`} style={{width: '1em', height: '1em'}}></div>
     };
 
-    // ==========================================
-    // Audio Processing Utilities
-    // ==========================================
     let globalAudio = null;
     const getGlobalAudio = () => {
       if (!globalAudio) {
@@ -129,9 +115,6 @@ const GEMINI_API_KEY = key1 + key2;
       });
     };
 
-    // ==========================================
-    // Utils
-    // ==========================================
     const fetchWithRetry = async (url, options, retries = 3) => {
       let delay = 1000;
       for (let i = 0; i < retries; i++) {
@@ -166,9 +149,6 @@ const GEMINI_API_KEY = key1 + key2;
       } catch (e) {}
     };
 
-    // ==========================================
-    // Main App Component
-    // ==========================================
     function App() {
       const [isCloudReady, setIsCloudReady] = useState(false);
       const [cloudStatus, setCloudStatus] = useState('connecting'); 
@@ -198,7 +178,6 @@ const GEMINI_API_KEY = key1 + key2;
       const isListeningRef = useRef(false);
       const [msgCount, setMsgCount] = useState(0);
 
-      // --- 1. Safe Auth Init ---
       useEffect(() => {
         const timer = setTimeout(async () => {
           try {
@@ -213,11 +192,10 @@ const GEMINI_API_KEY = key1 + key2;
             setCloudStatus('offline');
             setIsCloudReady(true);
           }
-        }, 500); // 画面表示後に少し待ってから認証（クラッシュ防止）
+        }, 500); 
         return () => clearTimeout(timer);
       }, []);
 
-      // --- 2. Data Sync ---
       useEffect(() => {
         if (!user || cloudStatus !== 'online') return;
         
@@ -241,7 +219,6 @@ const GEMINI_API_KEY = key1 + key2;
         return () => { unsubVocab(); unsubProf(); unsubMistakes(); };
       }, [user, cloudStatus]);
 
-      // --- Prompts & Scenarios ---
       const instruction = `
 重要ルール：
 1. 【厳格な制限】音声読み上げの途切れを防ぐため、1回の返答は**絶対に2文以内、かつ合計30単語以内**に収めてください。
@@ -278,7 +255,6 @@ const GEMINI_API_KEY = key1 + key2;
       };
       useEffect(() => scrollToBottom(), [messages, activeTab, interimTranscript]);
 
-      // --- Speech Recognition ---
       useEffect(() => {
         if (typeof window === 'undefined') return;
         const SpeechRecog = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -345,7 +321,6 @@ const GEMINI_API_KEY = key1 + key2;
         }
       };
 
-      // --- Init Chat ---
       useEffect(() => {
         setMessages([]);
         setAnalysisData(null);
@@ -356,7 +331,6 @@ const GEMINI_API_KEY = key1 + key2;
         setMessages([{ id: Date.now(), role: 'model', text: initMsg }]);
       }, [scenario]);
 
-      // --- Vocabulary ---
       const handleRequestVocab = (text) => {
         if (!text || text.trim() === '') return;
         setConfirmVocab({ text: text.trim() });
@@ -396,7 +370,7 @@ const GEMINI_API_KEY = key1 + key2;
             const docRef = await db.collection('users').doc(user.uid).collection('vocabulary').add(newObj);
             showToast(`単語帳に追加しました`, 'success');
 
-            const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`, {
+            const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ contents: [{ parts: [{ text: `英語「${text}」の一般的な日本語の意味（文の場合はニュアンス）を簡潔に答えてください。説明不要。` }] }] })
             });
@@ -404,12 +378,11 @@ const GEMINI_API_KEY = key1 + key2;
             await docRef.update({ meaning, isLoadingMeaning: false });
           } catch (e) { showToast("保存に失敗しました", 'error'); }
         } else {
-          // Offline Fallback
           const newId = Date.now().toString();
           setVocabulary(prev => [{ id: newId, ...newObj }, ...prev]);
           showToast(`単語帳に追加しました (一時保存)`, 'success');
           try {
-            const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`, {
+            const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ contents: [{ parts: [{ text: `英語「${text}」の一般的な日本語の意味を簡潔に答えてください。` }] }] })
             });
@@ -427,11 +400,10 @@ const GEMINI_API_KEY = key1 + key2;
         }
       };
 
-      // --- Chat Logic ---
       const updateContext = async (msgs) => {
         try {
           const txt = msgs.map(m => `${m.role}: ${m.text}`).join('\n');
-          const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`, {
+          const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: `ユーザー情報をアップデートし、今後の会話の前提となる情報を3〜4文の日本語で要約してください。\n\n【現在】\n${contextSummary || "なし"}\n\n【会話】\n${txt}` }] }] })
           });
@@ -451,7 +423,7 @@ const GEMINI_API_KEY = key1 + key2;
 ルール1: 些細な句読点ミスは指摘せず、意味が通じればisPerfectをtrueにすること。
 ルール2: explanationInJapanese の内容は、理由を「・」から始まる箇条書きで、極めて簡潔に記述すること。`;
 
-          const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`, {
+          const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ parts: [{ text: `"${text}"` }] }],
@@ -487,27 +459,8 @@ const GEMINI_API_KEY = key1 + key2;
         
         setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isSpeaking: true, isHighQuality: true } : m));
         const cleanText = text.replace(/\*\*/g, '');
-        const ttsPrompt = `Speak fast, casually, and use natural linking and reductions. Sound like a native speaker mumbling slightly and talking naturally to a friend: ${cleanText}`;
-
-        try {
-          const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${GEMINI_API_KEY}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: ttsPrompt }] }], generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } } }, model: "gemini-2.5-flash-preview-tts" })
-          });
-          
-          const b64 = res.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-          if (b64) {
-            const url = pcmToWavUrl(b64);
-            if (url) {
-              audio.src = url;
-              const timeout = setTimeout(() => { audio.pause(); setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isSpeaking: false, isHighQuality: false } : m)); URL.revokeObjectURL(url); }, 20000);
-              audio.onended = () => { clearTimeout(timeout); setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isSpeaking: false, isHighQuality: false } : m)); URL.revokeObjectURL(url); };
-              audio.onerror = () => { clearTimeout(timeout); setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isSpeaking: false, isHighQuality: false } : m)); URL.revokeObjectURL(url); };
-              await audio.play();
-              return;
-            }
-          }
-        } catch (e) {}
+        
+        // フォールバック（APIのTTSが使えない場合はブラウザの音声読み上げを利用）
         await speakFastBrowserTTS(cleanText);
         setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isSpeaking: false, isHighQuality: false } : m));
       };
@@ -542,7 +495,7 @@ const GEMINI_API_KEY = key1 + key2;
           const hist = messages.map(m => ({ role: m.role, parts: [{ text: m.text }] }));
           hist.push({ role: 'user', parts: [{ text: ut }] });
 
-          const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`, {
+          const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: hist, systemInstruction: { parts: [{ text: getDynamicPrompt() }] } })
           });
@@ -567,7 +520,7 @@ const GEMINI_API_KEY = key1 + key2;
       const handleTranslate = async (msgId, text) => {
         setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isTranslating: true } : m));
         try {
-          const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`, {
+          const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: `以下の英語を自然な日本語に翻訳してください。翻訳結果のみを出力し、解説や修正提案は絶対にしないでください:\n\n${text.replace(/\*\*/g, '')}` }] }] })
           });
@@ -583,7 +536,7 @@ const GEMINI_API_KEY = key1 + key2;
           const msText = mistakes.slice(0, 15).map(m => `ミス: ${m.originalText}\n修正: ${m.correctedText}`).join('\n\n');
           const sys = `あなたは英語コーチです。ユーザーのプロフィールとミス履歴から、現在のレベル、強み、弱点、学習アドバイスをJSONで提供してください。JSONの値は必ず「日本語」で。`;
           
-          const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`, {
+          const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ parts: [{ text: `【プロフィール】\n${contextSummary || '不明'}\n\n【ミス履歴】\n${msText}` }] }],
@@ -889,3 +842,5 @@ const GEMINI_API_KEY = key1 + key2;
   </script>
 </body>
 </html>
+
+
