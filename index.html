@@ -35,7 +35,7 @@
     const auth = firebase.auth();
 
     function App() {
-      const [messages, setMessages] = useState([{ id: 1, role: 'model', text: "デバッグモード起動。英語を入力してエラーを発生させてください。" }]);
+      const [messages, setMessages] = useState([{ id: 1, role: 'model', text: "デバッグモード起動。英語を入力してテストしてください。" }]);
       const [input, setInput] = useState('');
       const [isLoading, setIsLoading] = useState(false);
       const [debugLogs, setDebugLogs] = useState([]);
@@ -74,14 +74,19 @@
         setIsLoading(true);
 
         try {
-          const res = await fetchWithDebug(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          // ★修正ポイント：モデル名を「gemini-1.5-flash-latest」に変更しました
+          const res = await fetchWithDebug(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: uMsg.text }] }] })
           }, "ChatAPI");
 
           const aiText = res.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (aiText) setMessages(p => [...p, { id: Date.now(), role: 'model', text: aiText }]);
+          if (aiText) {
+            setMessages(p => [...p, { id: Date.now(), role: 'model', text: aiText }]);
+          } else {
+             addLog("ChatAPI Warning", "レスポンスは成功したが、テキストが含まれていません。");
+          }
         } catch (e) {
           // エラーはログに出るのでUI上は何もしない
         } finally {
@@ -99,7 +104,7 @@
             </div>
             {debugLogs.length === 0 && <div className="text-gray-400">待機中...</div>}
             {debugLogs.map((log, i) => (
-              <div key={i} className={`mb-1.5 leading-tight ${log.includes('Error') || log.includes('Catch') || log.includes('Body') ? 'text-red-400 break-words font-bold' : 'text-green-400'}`}>
+              <div key={i} className={`mb-1.5 leading-tight ${log.includes('Error') || log.includes('Catch') || log.includes('Body') || log.includes('Warning') ? 'text-red-400 break-words font-bold' : 'text-green-400'}`}>
                 {log}
               </div>
             ))}
