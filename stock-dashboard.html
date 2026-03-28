@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Stock Dashboard</title>
+  <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/EMoji_u1f4c8.svg/1024px-EMoji_u1f4c8.svg.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { overscroll-behavior-y: none; background-color: #0f172a; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .shimmer {
+      background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.05) 50%, transparent 75%);
+      background-size: 200% 100%;
+      animation: shimmer 2s infinite;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
+    .mini-chart { image-rendering: crisp-edges; }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            dark: { 800: '#1e293b', 900: '#0f172a', 700: '#334155' },
+            up: '#22c55e',
+            down: '#ef4444',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-dark-900 text-white font-sans overflow-hidden overscroll-none">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // ダミー株価データ
+    const STOCKS = {
+      jp: [
+        { symbol: '7203', name: 'トヨタ自動車', price: 2847.5, change: +42.5, changePct: +1.52, volume: 18420000, market: 'TSE' },
+        { symbol: '6758', name: 'ソニーグループ', price: 13250, change: -180, changePct: -1.34, volume: 5630000, market: 'TSE' },
+        { symbol: '9984', name: 'ソフトバンクG', price: 8945, change: +235, changePct: +2.70, volume: 12800000, market: 'TSE' },
+        { symbol: '6861', name: 'キーエンス', price: 67800, change: +1200, changePct: +1.80, volume: 980000, market: 'TSE' },
+        { symbol: '9432', name: 'NTT', price: 158.2, change: -1.8, changePct: -1.12, volume: 42500000, market: 'TSE' },
+        { symbol: '8306', name: '三菱UFJ', price: 1823, change: +28, changePct: +1.56, volume: 31200000, market: 'TSE' },
+        { symbol: '7974', name: '任天堂', price: 9120, change: +85, changePct: +0.94, volume: 4200000, market: 'TSE' },
+        { symbol: '4063', name: '信越化学', price: 5430, change: -65, changePct: -1.18, volume: 3100000, market: 'TSE' },
+        { symbol: '6501', name: '日立製作所', price: 3850, change: +120, changePct: +3.22, volume: 8700000, market: 'TSE' },
+        { symbol: '6902', name: 'デンソー', price: 2315, change: -12, changePct: -0.52, volume: 2900000, market: 'TSE' },
+        { symbol: '8035', name: '東京エレクトロン', price: 28500, change: +850, changePct: +3.07, volume: 3400000, market: 'TSE' },
+        { symbol: '4519', name: '中外製薬', price: 6280, change: +95, changePct: +1.54, volume: 2800000, market: 'TSE' },
+        { symbol: '6367', name: 'ダイキン工業', price: 22400, change: -310, changePct: -1.37, volume: 1100000, market: 'TSE' },
+        { symbol: '9433', name: 'KDDI', price: 4825, change: +15, changePct: +0.31, volume: 5600000, market: 'TSE' },
+        { symbol: '6594', name: '日本電産', price: 3280, change: +78, changePct: +2.43, volume: 3200000, market: 'TSE' },
+      ],
+      us: [
+        { symbol: 'AAPL', name: 'Apple', price: 178.42, change: +2.15, changePct: +1.22, volume: 52300000, market: 'NASDAQ' },
+        { symbol: 'MSFT', name: 'Microsoft', price: 428.50, change: +5.80, changePct: +1.37, volume: 22100000, market: 'NASDAQ' },
+        { symbol: 'GOOGL', name: 'Alphabet', price: 153.20, change: -1.45, changePct: -0.94, volume: 18700000, market: 'NASDAQ' },
+        { symbol: 'AMZN', name: 'Amazon', price: 185.60, change: +3.20, changePct: +1.75, volume: 31500000, market: 'NASDAQ' },
+        { symbol: 'NVDA', name: 'NVIDIA', price: 875.30, change: +28.50, changePct: +3.36, volume: 45200000, market: 'NASDAQ' },
+        { symbol: 'META', name: 'Meta Platforms', price: 505.80, change: -8.20, changePct: -1.60, volume: 14800000, market: 'NASDAQ' },
+        { symbol: 'TSLA', name: 'Tesla', price: 172.50, change: +6.80, changePct: +4.10, volume: 68900000, market: 'NASDAQ' },
+        { symbol: 'JPM', name: 'JPMorgan', price: 198.40, change: +1.20, changePct: +0.61, volume: 8900000, market: 'NYSE' },
+        { symbol: 'V', name: 'Visa', price: 282.30, change: +0.85, changePct: +0.30, volume: 5600000, market: 'NYSE' },
+        { symbol: 'JNJ', name: 'Johnson & Johnson', price: 156.80, change: -2.10, changePct: -1.32, volume: 6200000, market: 'NYSE' },
+      ],
+    };
+
+    const INDICES = [
+      { name: '日経平均', value: 39127.85, change: +324.50, changePct: +0.84 },
+      { name: 'TOPIX', value: 2714.32, change: +18.75, changePct: +0.70 },
+      { name: 'S&P 500', value: 5234.18, change: +42.30, changePct: +0.81 },
+      { name: 'NASDAQ', value: 16428.82, change: +187.44, changePct: +1.15 },
+      { name: 'DOW', value: 39512.84, change: -45.20, changePct: -0.11 },
+      { name: 'USD/JPY', value: 151.42, change: +0.38, changePct: +0.25 },
+    ];
+
+    // ミニチャート用のダミーデータ生成
+    function generateChartData(isPositive) {
+      const points = [];
+      let val = 50;
+      for (let i = 0; i < 30; i++) {
+        val += (Math.random() - (isPositive ? 0.42 : 0.58)) * 6;
+        val = Math.max(10, Math.min(90, val));
+        points.push(val);
+      }
+      return points;
+    }
+
+    // SVGミニチャート
+    function MiniChart({ positive, width = 80, height = 32 }) {
+      const data = useMemo(() => generateChartData(positive), [positive]);
+      const color = positive ? '#22c55e' : '#ef4444';
+      const min = Math.min(...data);
+      const max = Math.max(...data);
+      const range = max - min || 1;
+      const points = data.map((v, i) => {
+        const x = (i / (data.length - 1)) * width;
+        const y = height - ((v - min) / range) * (height - 4) - 2;
+        return `${x},${y}`;
+      }).join(' ');
+
+      return (
+        <svg width={width} height={height} className="mini-chart">
+          <defs>
+            <linearGradient id={`grad-${positive}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+              <stop offset="100%" stopColor={color} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <polygon
+            points={`0,${height} ${points} ${width},${height}`}
+            fill={`url(#grad-${positive})`}
+          />
+          <polyline
+            points={points}
+            fill="none"
+            stroke={color}
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    }
+
+    // 数字フォーマット
+    function formatPrice(price, isJP) {
+      if (isJP) {
+        return price.toLocaleString('ja-JP', { minimumFractionDigits: price % 1 === 0 ? 0 : 1 });
+      }
+      return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatVolume(vol) {
+      if (vol >= 1000000) return (vol / 1000000).toFixed(1) + 'M';
+      if (vol >= 1000) return (vol / 1000).toFixed(0) + 'K';
+      return vol.toString();
+    }
+
+    // 指数ティッカー
+    function IndexTicker() {
+      const scrollRef = useRef(null);
+      return (
+        <div ref={scrollRef} className="flex gap-3 overflow-x-auto no-scrollbar px-4 py-3">
+          {INDICES.map((idx, i) => (
+            <div key={i} className="flex-shrink-0 bg-dark-800 rounded-xl px-4 py-3 min-w-[140px] border border-slate-700/50">
+              <div className="text-xs text-slate-400 mb-1">{idx.name}</div>
+              <div className="text-sm font-bold">{idx.value.toLocaleString('ja-JP', { minimumFractionDigits: 2 })}</div>
+              <div className={`text-xs font-medium mt-0.5 ${idx.change >= 0 ? 'text-up' : 'text-down'}`}>
+                {idx.change >= 0 ? '+' : ''}{idx.change.toFixed(2)} ({idx.change >= 0 ? '+' : ''}{idx.changePct.toFixed(2)}%)
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // 株カード
+    function StockCard({ stock, isJP, onClick }) {
+      const isUp = stock.change >= 0;
+      return (
+        <div
+          onClick={() => onClick(stock)}
+          className="bg-dark-800 rounded-xl p-4 border border-slate-700/40 active:bg-dark-700 transition-colors cursor-pointer fade-in-up"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm">{stock.symbol}</span>
+                <span className="text-[10px] text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded">{stock.market}</span>
+              </div>
+              <div className="text-xs text-slate-400 truncate mt-0.5">{stock.name}</div>
+            </div>
+            <MiniChart positive={isUp} />
+          </div>
+          <div className="flex items-end justify-between">
+            <div>
+              <div className="text-lg font-bold">
+                {isJP ? '¥' : '$'}{formatPrice(stock.price, isJP)}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">
+                出来高 {formatVolume(stock.volume)}
+              </div>
+            </div>
+            <div className={`px-2.5 py-1 rounded-lg text-xs font-bold ${isUp ? 'bg-up/15 text-up' : 'bg-down/15 text-down'}`}>
+              {isUp ? '+' : ''}{stock.changePct.toFixed(2)}%
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 株詳細モーダル
+    function StockDetail({ stock, isJP, onClose }) {
+      if (!stock) return null;
+      const isUp = stock.change >= 0;
+
+      const details = [
+        { label: '始値', value: (stock.price - stock.change + Math.random() * 20 - 10).toFixed(isJP ? 1 : 2) },
+        { label: '高値', value: (stock.price + Math.abs(stock.change) * 0.8 + Math.random() * 30).toFixed(isJP ? 1 : 2) },
+        { label: '安値', value: (stock.price - Math.abs(stock.change) * 1.2 - Math.random() * 20).toFixed(isJP ? 1 : 2) },
+        { label: '出来高', value: formatVolume(stock.volume) },
+        { label: '前日終値', value: (stock.price - stock.change).toFixed(isJP ? 1 : 2) },
+        { label: '52週高値', value: (stock.price * (1 + Math.random() * 0.3)).toFixed(isJP ? 0 : 2) },
+        { label: '52週安値', value: (stock.price * (1 - Math.random() * 0.3)).toFixed(isJP ? 0 : 2) },
+      ];
+
+      // 大きなチャート用データ
+      const chartData = useMemo(() => generateChartData(isUp), [isUp]);
+      const chartW = 320;
+      const chartH = 160;
+      const min = Math.min(...chartData);
+      const max = Math.max(...chartData);
+      const range = max - min || 1;
+      const points = chartData.map((v, i) => {
+        const x = (i / (chartData.length - 1)) * chartW;
+        const y = chartH - ((v - min) / range) * (chartH - 8) - 4;
+        return `${x},${y}`;
+      }).join(' ');
+      const color = isUp ? '#22c55e' : '#ef4444';
+
+      return (
+        <div className="fixed inset-0 z-50 bg-dark-900/95 backdrop-blur-sm flex flex-col">
+          {/* ヘッダー */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50">
+            <button onClick={onClose} className="text-slate-400 p-2 -ml-2 active:text-white">
+              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <div className="text-center">
+              <div className="font-bold">{stock.symbol}</div>
+              <div className="text-xs text-slate-400">{stock.name}</div>
+            </div>
+            <div className="w-10"></div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto no-scrollbar pb-8">
+            {/* 価格 */}
+            <div className="px-4 py-6 text-center">
+              <div className="text-3xl font-bold">
+                {isJP ? '¥' : '$'}{formatPrice(stock.price, isJP)}
+              </div>
+              <div className={`text-sm font-medium mt-1 ${isUp ? 'text-up' : 'text-down'}`}>
+                {isUp ? '+' : ''}{stock.change.toFixed(isJP ? 1 : 2)} ({isUp ? '+' : ''}{stock.changePct.toFixed(2)}%)
+              </div>
+              <div className="text-xs text-slate-500 mt-1">本日の変動</div>
+            </div>
+
+            {/* チャート */}
+            <div className="px-4 mb-6">
+              <div className="bg-dark-800 rounded-2xl p-4 border border-slate-700/40">
+                <div className="flex gap-2 mb-4">
+                  {['1D', '1W', '1M', '3M', '1Y'].map((period, i) => (
+                    <button
+                      key={period}
+                      className={`flex-1 text-xs py-1.5 rounded-lg font-medium ${i === 0 ? 'bg-slate-700 text-white' : 'text-slate-500'}`}
+                    >
+                      {period}
+                    </button>
+                  ))}
+                </div>
+                <svg width="100%" viewBox={`0 0 ${chartW} ${chartH}`} preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="detail-grad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+                      <stop offset="100%" stopColor={color} stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <polygon
+                    points={`0,${chartH} ${points} ${chartW},${chartH}`}
+                    fill="url(#detail-grad)"
+                  />
+                  <polyline
+                    points={points}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+            </div>
+
+            {/* 詳細情報 */}
+            <div className="px-4">
+              <h3 className="text-sm font-bold mb-3 text-slate-300">詳細情報</h3>
+              <div className="bg-dark-800 rounded-2xl border border-slate-700/40 divide-y divide-slate-700/30">
+                {details.map((d, i) => (
+                  <div key={i} className="flex justify-between px-4 py-3">
+                    <span className="text-sm text-slate-400">{d.label}</span>
+                    <span className="text-sm font-medium">{isJP ? '¥' : '$'}{d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // メインアプリ
+    function App() {
+      const [market, setMarket] = useState('jp');
+      const [search, setSearch] = useState('');
+      const [selectedStock, setSelectedStock] = useState(null);
+      const [sortBy, setSortBy] = useState('name'); // name, change, volume
+
+      const isJP = market === 'jp';
+      const stocks = STOCKS[market];
+
+      const filtered = useMemo(() => {
+        let list = stocks.filter(s =>
+          s.symbol.toLowerCase().includes(search.toLowerCase()) ||
+          s.name.toLowerCase().includes(search.toLowerCase())
+        );
+        if (sortBy === 'change') list = [...list].sort((a, b) => b.changePct - a.changePct);
+        if (sortBy === 'volume') list = [...list].sort((a, b) => b.volume - a.volume);
+        return list;
+      }, [stocks, search, sortBy]);
+
+      const upCount = stocks.filter(s => s.change >= 0).length;
+      const downCount = stocks.filter(s => s.change < 0).length;
+
+      const now = new Date();
+      const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      return (
+        <div className="h-screen flex flex-col bg-dark-900">
+          {/* ヘッダー */}
+          <div className="px-4 pt-3 pb-2">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h1 className="text-xl font-bold">株価ダッシュボード</h1>
+                <p className="text-xs text-slate-500 mt-0.5">最終更新 {timeStr} (ダミーデータ)</p>
+              </div>
+              <div className="flex items-center gap-1 text-xs">
+                <span className="text-up font-medium">{upCount} 上昇</span>
+                <span className="text-slate-600">/</span>
+                <span className="text-down font-medium">{downCount} 下落</span>
+              </div>
+            </div>
+
+            {/* 市場切替 */}
+            <div className="flex gap-1 bg-dark-800 p-1 rounded-xl mb-3">
+              <button
+                onClick={() => { setMarket('jp'); setSearch(''); }}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${market === 'jp' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}
+              >
+                日本株
+              </button>
+              <button
+                onClick={() => { setMarket('us'); setSearch(''); }}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${market === 'us' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}
+              >
+                米国株
+              </button>
+            </div>
+          </div>
+
+          {/* 指数ティッカー */}
+          <IndexTicker />
+
+          {/* 検索 & ソート */}
+          <div className="px-4 py-2 flex gap-2">
+            <div className="flex-1 relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="7" cy="7" r="5" /><path d="M11 11l3.5 3.5" />
+              </svg>
+              <input
+                type="text"
+                placeholder="銘柄を検索..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full bg-dark-800 border border-slate-700/50 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
+              />
+            </div>
+            <div className="flex bg-dark-800 border border-slate-700/50 rounded-xl overflow-hidden">
+              {[
+                { key: 'name', label: '名前' },
+                { key: 'change', label: '変動' },
+                { key: 'volume', label: '出来高' },
+              ].map(s => (
+                <button
+                  key={s.key}
+                  onClick={() => setSortBy(s.key)}
+                  className={`px-2.5 py-2.5 text-[11px] font-medium transition-colors ${sortBy === s.key ? 'bg-slate-700 text-white' : 'text-slate-500'}`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 銘柄リスト */}
+          <div className="flex-1 overflow-y-auto no-scrollbar px-4 pb-6">
+            <div className="grid grid-cols-1 gap-2.5 mt-1">
+              {filtered.map((stock, i) => (
+                <StockCard
+                  key={stock.symbol}
+                  stock={stock}
+                  isJP={isJP}
+                  onClick={setSelectedStock}
+                />
+              ))}
+              {filtered.length === 0 && (
+                <div className="text-center text-slate-500 py-12 text-sm">
+                  該当する銘柄がありません
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 詳細モーダル */}
+          {selectedStock && (
+            <StockDetail
+              stock={selectedStock}
+              isJP={isJP}
+              onClose={() => setSelectedStock(null)}
+            />
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
